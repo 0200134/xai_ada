@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B737-800 Baggage Express - AI-Ada Cockpit Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fira Code', monospace;
+            background-color: #0b0e14;
+            color: #00ffcc;
+        }
+        /* Custom retro-cyberpunk glowing effects */
+        .glow-cyan {
+            text-shadow: 0 0 8px rgba(0, 255, 204, 0.6);
+        }
+        .glow-red {
+            text-shadow: 0 0 8px rgba(255, 51, 85, 0.8);
+        }
+        .box-glow-cyan {
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.12), inset 0 0 10px rgba(0, 255, 204, 0.04);
+        }
+        .box-glow-red {
+            box-shadow: 0 0 20px rgba(255, 51, 85, 0.4), inset 0 0 10px rgba(255, 51, 85, 0.2);
+        }
+        /* Custom range sliders styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #161b22;
+            border: 1px solid #00ffcc33;
+            height: 8px;
+            border-radius: 4px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 14px;
+            border-radius: 2px;
+            background: #00ffcc;
+            cursor: pointer;
+            box-shadow: 0 0 8px #00ffcc;
+        }
+        input[type=range].emergency-thumb::-webkit-slider-thumb {
+            background: #ff3355;
+            box-shadow: 0 0 10px #ff3355;
+        }
+        /* Scrollbar styling for telemetry log */
+        #telemetryLog::-webkit-scrollbar {
+            width: 6px;
+        }
+        #telemetryLog::-webkit-scrollbar-track {
+            background: #06090e;
+        }
+        #telemetryLog::-webkit-scrollbar-thumb {
+            background: #00ffcc44;
+            border-radius: 3px;
+        }
+        #telemetryLog::-webkit-scrollbar-thumb:hover {
+            background: #00ffcc88;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 flex flex-col justify-between select-none">
+
+    <!-- Top Header & Status Banner -->
+    <header class="mb-4 border-b border-cyan-900/60 pb-3 flex flex-wrap justify-between items-center gap-4">
+        <div>
+            <div class="flex items-center space-x-3">
+                <span class="inline-block w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></span>
+                <h1 class="text-xl md:text-2xl font-bold tracking-wider text-cyan-400 glow-cyan">
+                    B737-800 <span class="text-amber-400">"BAGGAGE EXPRESS"</span>
+                </h1>
+            </div>
+            <p class="text-xs text-cyan-600 mt-0.5">AI-Ada Symbiotic Flight Deck | Neural Shadow Core v2.4 (tract ONNX)</p>
+        </div>
+
+        <!-- Mode Selectors & Master Caution -->
+        <div class="flex items-center space-x-2 md:space-x-4">
+            <div id="masterCaution" class="hidden px-3 py-1.5 rounded border border-red-500 bg-red-950/80 text-red-400 text-xs font-bold animate-bounce glow-red flex items-center space-x-1">
+                <span>⚠️ HYDRAULIC LOCK ENGAGED</span>
+            </div>
+            <div class="bg-slate-900 border border-cyan-800/60 rounded p-1 flex space-x-1 text-xs">
+                <button id="btnManual" onclick="setFlightMode('ManualWithShadow')" class="px-2.5 py-1 rounded bg-cyan-500 text-slate-950 font-bold transition">MANUAL (SHADOW)</button>
+                <button id="btnAuto" onclick="setFlightMode('AutoFlightEngaged')" class="px-2.5 py-1 rounded text-cyan-400 hover:bg-cyan-950 transition">AUTO-FLIGHT</button>
+                <button id="btnOverride" onclick="setFlightMode('EmergencyOverride')" class="px-2.5 py-1 rounded text-red-400 hover:bg-red-950 transition">EMERGENCY</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Grid Layout -->
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-grow">
+
+        <!-- Left Column: Controls & Flight Dynamics (4 Cols) -->
+        <section class="lg:col-span-4 flex flex-col space-y-4">
+            <!-- Pilot Yoke Controls Panel -->
+            <div class="bg-slate-950 border border-cyan-900/80 rounded-lg p-4 box-glow-cyan">
+                <h2 class="text-sm font-bold text-cyan-400 border-b border-cyan-900/50 pb-2 mb-3 flex justify-between items-center">
+                    <span>🎮 KEYBOARD & SLIDER YOKE INPUTS</span>
+                    <span id="controlLockBadge" class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">UNLOCKED</span>
+                </h2>
+
+                <!-- Keyboard Active Indicator Widget -->
+                <div class="mb-4 bg-slate-900/90 border border-slate-800 rounded p-2.5 flex flex-col space-y-2 text-xs font-mono">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400 text-[11px]">FLIGHT CONTROLS:</span>
+                        <span class="text-[10px] text-cyan-500 font-semibold">[SPACE: RESET TRIM]</span>
+                    </div>
+                    <div class="grid grid-cols-5 gap-1 text-[10px] text-center">
+                        <span id="keyUp" class="px-1.5 py-1 rounded border border-slate-700 bg-slate-950 text-slate-500 transition">▲ S/↓</span>
+                        <span id="keyDown" class="px-1.5 py-1 rounded border border-slate-700 bg-slate-950 text-slate-500 transition">▼ W/↑</span>
+                        <span id="keyLeft" class="px-1.5 py-1 rounded border border-slate-700 bg-slate-950 text-slate-500 transition">◄ A/←</span>
+                        <span id="keyRight" class="px-1.5 py-1 rounded border border-slate-700 bg-slate-950 text-slate-500 transition">► D/→</span>
+                        <span id="keySpace" class="px-1 py-1 rounded border border-slate-700 bg-slate-950 text-slate-500 transition">SPC</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-1 border-t border-slate-800/80 text-[10px]">
+                        <span class="text-slate-400">THROTTLE:</span>
+                        <div class="flex space-x-1">
+                            <span id="keyShift" class="px-2 py-0.5 rounded border border-slate-700 bg-slate-950 text-slate-500 transition">SHIFT (PWR +)</span>
+                            <span id="keyCtrl" class="px-2 py-0.5 rounded border border-slate-700 bg-slate-950 text-slate-500 transition">CTRL (PWR -)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pitch Slider -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-400">PITCH (Elevator) <span class="text-[10px] text-cyan-500">[W/S or Up/Down]</span></span>
+                        <span class="font-bold text-cyan-300" id="pitchDisplay">0.0°</span>
+                    </div>
+                    <input type="range" id="pitchSlider" min="-30" max="30" step="0.5" value="0.0" class="w-full">
+                    <div class="flex justify-between text-[10px] text-slate-600 mt-1">
+                        <span>-30° (Nose Down)</span>
+                        <span class="text-red-500 font-semibold">&lt; -10° / &gt; +15° Override</span>
+                        <span>+30° (Nose Up)</span>
+                    </div>
+                </div>
+
+                <!-- Roll Slider -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-400">ROLL (Aileron) <span class="text-[10px] text-cyan-500">[A/D or Left/Right]</span></span>
+                        <span class="font-bold text-cyan-300" id="rollDisplay">0.0°</span>
+                    </div>
+                    <input type="range" id="rollSlider" min="-60" max="60" step="1" value="0.0" class="w-full">
+                    <div class="flex justify-between text-[10px] text-slate-600 mt-1">
+                        <span>-60° (Left Bank)</span>
+                        <span class="text-red-500 font-semibold">&gt; ±45° Override</span>
+                        <span>+60° (Right Bank)</span>
+                    </div>
+                </div>
+
+                <!-- Throttle Control -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-400">AIRSPEED / THROTTLE <span class="text-[10px] text-cyan-500">[Shift/Ctrl]</span></span>
+                        <span class="font-bold text-cyan-300" id="throttleDisplay">280 KTS</span>
+                    </div>
+                    <input type="range" id="throttleSlider" min="150" max="450" step="5" value="280" class="w-full">
+                </div>
+
+                <!-- Quick Presets -->
+                <div class="pt-2 border-t border-slate-800/80">
+                    <span class="text-[10px] text-slate-400 block mb-2">SCENARIO PRESETS (TEST HARNESS)</span>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <button onclick="applyPreset(0, 0)" class="px-2 py-1 bg-slate-900 border border-slate-700 hover:border-cyan-500 rounded text-slate-300">Level Flight</button>
+                        <button onclick="applyPreset(-16.5, 48)" class="px-2 py-1 bg-red-950/60 border border-red-800/80 hover:border-red-500 rounded text-red-300">Rookie Dive ⚠️</button>
+                        <button onclick="applyPreset(18.0, 10)" class="px-2 py-1 bg-amber-950/60 border border-amber-800/80 hover:border-amber-500 rounded text-amber-300">High Pitch ⚠️</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Waypoint Navigation Computer -->
+            <div class="bg-slate-950 border border-cyan-900/80 rounded-lg p-4 box-glow-cyan flex-grow flex flex-col justify-between">
+                <div>
+                    <h2 class="text-sm font-bold text-cyan-400 border-b border-cyan-900/50 pb-2 mb-3 flex justify-between items-center">
+                        <span>🧭 GREAT-CIRCLE NAV COMPUTER</span>
+                        <span class="text-xs text-amber-400 font-mono" id="navDistDisplay">DIST: -- km</span>
+                    </h2>
+
+                    <!-- Waypoint Selector -->
+                    <div class="grid grid-cols-3 gap-1.5 mb-4 text-xs">
+                        <button id="wp0" onclick="selectWaypoint(0)" class="py-1.5 border rounded border-cyan-500 bg-cyan-950 text-cyan-300 font-bold">GMP</button>
+                        <button id="wp1" onclick="selectWaypoint(1)" class="py-1.5 border rounded border-slate-800 bg-slate-900 text-slate-400">WP-ALPHA</button>
+                        <button id="wp2" onclick="selectWaypoint(2)" class="py-1.5 border rounded border-slate-800 bg-slate-900 text-slate-400">CJU</button>
+                    </div>
+
+                    <!-- Nav Metrics -->
+                    <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+                        <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
+                            <span class="text-slate-500 block text-[10px]">CURRENT POSITION</span>
+                            <span class="text-cyan-300 font-mono text-[11px]" id="currentPosDisplay">37.558°N 126.790°E</span>
+                        </div>
+                        <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
+                            <span class="text-slate-500 block text-[10px]">ACTIVE WAYPOINT</span>
+                            <span class="text-amber-300 font-mono text-[11px]" id="targetWpDisplay">GMP (5000ft)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/90 p-2.5 rounded border border-cyan-900/50 flex justify-between items-center">
+                    <div>
+                        <span class="text-[10px] text-slate-400 block">TARGET BEARING</span>
+                        <span class="text-lg font-bold text-cyan-300 glow-cyan" id="targetBearingDisplay">176.2°</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] text-slate-400 block">AUTO-SEQUENCE RADIUS</span>
+                        <span class="text-xs text-amber-400 font-bold">5.0 km (Haversine)</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Center Column: Primary Flight Display (PFD Canvas) & Horizon (5 Cols) -->
+        <section class="lg:col-span-5 flex flex-col space-y-4">
+            <!-- Canvas Horizon Indicator -->
+            <div class="bg-slate-950 border border-cyan-900/80 rounded-lg p-3 box-glow-cyan flex flex-col items-center justify-center relative">
+                <!-- Artificial Horizon Canvas -->
+                <canvas id="horizonCanvas" width="460" height="320" class="rounded border border-cyan-950 w-full max-w-full h-auto bg-black"></canvas>
+                
+                <!-- HUD Overlay Information -->
+                <div class="w-full flex justify-between items-center text-xs px-2 mt-3 font-mono">
+                    <div>
+                        <span class="text-slate-500">AIRSPEED:</span> 
+                        <span class="text-cyan-300 font-bold" id="airspeedDisplay">280 KTS</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500">ALTITUDE:</span> 
+                        <span class="text-cyan-300 font-bold" id="altitudeDisplay">10,000 FT</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500">CORRECTED PITCH:</span> 
+                        <span class="text-amber-300 font-bold" id="correctedPitchDisplay">0.0°</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI-Ada Neural Core & DEA Metrics Box -->
+            <div id="aiStatusBox" class="bg-slate-950 border border-cyan-900/80 rounded-lg p-4 box-glow-cyan transition-all duration-300">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
+                    <span class="text-xs font-bold text-cyan-400">🤖 AI-ADA DEA LEARNING ENGINE & MATRIX SCALER</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-slate-900 text-cyan-400 border border-cyan-900">TRACT ONNX BACKEND</span>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                    <div class="bg-slate-900/60 p-2 rounded">
+                        <span class="text-slate-500 block text-[10px]">AI INTERVENTION</span>
+                        <span id="aiInterventionStatus" class="font-bold text-cyan-400">NOMINAL (SHADOW)</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded">
+                        <span class="text-slate-500 block text-[10px]">DEA SENSITIVITY</span>
+                        <span id="deaSensitivityDisplay" class="font-bold text-amber-400">1.2500</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded col-span-2 md:col-span-1">
+                        <span class="text-slate-500 block text-[10px]">SAMPLES HARVESTED</span>
+                        <span id="deaSamplesDisplay" class="font-bold text-cyan-300">1,250</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Black-Box Flight Telemetry Logger (3 Cols) -->
+        <section class="lg:col-span-3 flex flex-col">
+            <div class="bg-slate-950 border border-cyan-900/80 rounded-lg p-4 box-glow-cyan flex-grow flex flex-col h-full min-h-[400px]">
+                <!-- Terminal-style Header matching reference UI -->
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2.5 mb-3">
+                    <h2 class="text-xs font-bold text-cyan-400 flex items-center space-x-2 tracking-wider">
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                        <span>BLACK-BOX TELEMETRY LOG</span>
+                    </h2>
+                    <button onclick="clearTelemetryLog()" class="text-[10px] text-slate-500 hover:text-cyan-400 transition">CLEAR</button>
+                </div>
+
+                <!-- Telemetry Log Terminal Box with screenshot-matched styling -->
+                <div id="telemetryLog" class="flex-grow bg-[#06090e] border border-slate-800/90 rounded-md p-3 text-[11px] font-mono overflow-y-auto max-h-[480px] space-y-1.5 leading-relaxed">
+                    <div class="text-cyan-400">[11:38:00] [SYSTEM INIT] AI-Ada Flight Core Online.</div>
+                    <div class="text-cyan-400">[11:38:00] [SYSTEM INIT] Loaded ai_ada_model.onnx via tract.</div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer Status Bar -->
+    <footer class="mt-4 pt-2 border-t border-slate-800 text-[11px] text-slate-500 flex flex-wrap justify-between items-center">
+        <div>RETROFITTED BOEING 737-800 LOGISTICS FLEET | BAGGAGE EXPRESS AIRWAY</div>
+        <div class="flex space-x-4">
+            <span>STABILITY: <span class="text-cyan-400">VERIFIED</span></span>
+            <span>HYDRAULICS: <span class="text-cyan-400">100% OPERATIONAL</span></span>
+        </div>
+    </footer>
+
+    <!-- Simulation Script Logic -->
+    <script>
+        // --- Flight State Variables ---
+        let flightMode = 'ManualWithShadow'; // 'ManualWithShadow', 'AutoFlightEngaged', 'EmergencyOverride'
+        let pilotPitch = 0.0;
+        let pilotRoll = 0.0;
+        let correctedPitch = 0.0;
+        let correctedRoll = 0.0;
+        let airspeed = 280.0;
+        let altitude = 10000.0;
+
+        // --- Keyboard State Tracking ---
+        const keysPressed = {
+            ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+            w: false, s: false, a: false, d: false,
+            Shift: false, Control: false, Space: false
+        };
+
+        // --- DEA Learning Engine State ---
+        let deaSensitivity = 1.2500;
+        let deaSamples = 1250;
+        let isEmergency = false;
+
+        // --- Waypoints & Navigation ---
+        const waypoints = [
+            { name: "GMP (Gimpo)", lat: 37.5588, lon: 126.7906, alt: 5000.0 },
+            { name: "WP-ALPHA",   lat: 35.8000, lon: 126.3000, alt: 12000.0 },
+            { name: "CJU (Jeju)",   lat: 33.5104, lon: 126.4934, alt: 1000.0 }
+        ];
+        let activeWpIndex = 0;
+        let currentPos = { lat: 37.5588, lon: 126.7906 };
+
+        // --- DOM Elements ---
+        const pitchSlider = document.getElementById('pitchSlider');
+        const rollSlider = document.getElementById('rollSlider');
+        const throttleSlider = document.getElementById('throttleSlider');
+        const pitchDisplay = document.getElementById('pitchDisplay');
+        const rollDisplay = document.getElementById('rollDisplay');
+        const throttleDisplay = document.getElementById('throttleDisplay');
+        const correctedPitchDisplay = document.getElementById('correctedPitchDisplay');
+        const masterCaution = document.getElementById('masterCaution');
+        const telemetryLog = document.getElementById('telemetryLog');
+        const horizonCanvas = document.getElementById('horizonCanvas');
+        const ctx = horizonCanvas.getContext('2d');
+
+        // Key UI Indicators
+        const keyUpEl = document.getElementById('keyUp');
+        const keyDownEl = document.getElementById('keyDown');
+        const keyLeftEl = document.getElementById('keyLeft');
+        const keyRightEl = document.getElementById('keyRight');
+        const keySpaceEl = document.getElementById('keySpace');
+        const keyShiftEl = document.getElementById('keyShift');
+        const keyCtrlEl = document.getElementById('keyCtrl');
+
+        // --- Keyboard Event Handlers ---
+        window.addEventListener('keydown', (e) => {
+            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", " "].includes(e.key)) {
+                e.preventDefault();
+            }
+            const k = e.key === ' ' ? 'Space' : e.key;
+            
+            if (k === 'Shift') keysPressed.Shift = true;
+            if (k === 'Control') keysPressed.Control = true;
+            if (k === 'Space') keysPressed.Space = true;
+
+            if (k.toLowerCase() === 'w' || k === 'ArrowUp') keysPressed.ArrowUp = true;
+            if (k.toLowerCase() === 's' || k === 'ArrowDown') keysPressed.ArrowDown = true;
+            if (k.toLowerCase() === 'a' || k === 'ArrowLeft') keysPressed.ArrowLeft = true;
+            if (k.toLowerCase() === 'd' || k === 'ArrowRight') keysPressed.ArrowRight = true;
+
+            updateKeyUiWidget();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const k = e.key === ' ' ? 'Space' : e.key;
+            
+            if (k === 'Shift') keysPressed.Shift = false;
+            if (k === 'Control') keysPressed.Control = false;
+            if (k === 'Space') keysPressed.Space = false;
+
+            if (k.toLowerCase() === 'w' || k === 'ArrowUp') keysPressed.ArrowUp = false;
+            if (k.toLowerCase() === 's' || k === 'ArrowDown') keysPressed.ArrowDown = false;
+            if (k.toLowerCase() === 'a' || k === 'ArrowLeft') keysPressed.ArrowLeft = false;
+            if (k.toLowerCase() === 'd' || k === 'ArrowRight') keysPressed.ArrowRight = false;
+
+            updateKeyUiWidget();
+        });
+
+        // --- Event Listeners for Sliders ---
+        pitchSlider.addEventListener('input', (e) => {
+            if (flightMode === 'ManualWithShadow') pilotPitch = parseFloat(e.target.value);
+        });
+
+        rollSlider.addEventListener('input', (e) => {
+            if (flightMode === 'ManualWithShadow') pilotRoll = parseFloat(e.target.value);
+        });
+
+        throttleSlider.addEventListener('input', (e) => {
+            airspeed = parseFloat(e.target.value);
+        });
+
+        function applyPreset(pitch, roll) {
+            setFlightMode('ManualWithShadow');
+            pitchSlider.value = pitch;
+            rollSlider.value = roll;
+            pilotPitch = pitch;
+            pilotRoll = roll;
+        }
+
+        function setFlightMode(mode) {
+            flightMode = mode;
+            document.getElementById('btnManual').className = mode === 'ManualWithShadow' ? "px-2.5 py-1 rounded bg-cyan-500 text-slate-950 font-bold transition" : "px-2.5 py-1 rounded text-cyan-400 hover:bg-cyan-950 transition";
+            document.getElementById('btnAuto').className = mode === 'AutoFlightEngaged' ? "px-2.5 py-1 rounded bg-cyan-500 text-slate-950 font-bold transition" : "px-2.5 py-1 rounded text-cyan-400 hover:bg-cyan-950 transition";
+            document.getElementById('btnOverride').className = mode === 'EmergencyOverride' ? "px-2.5 py-1 rounded bg-red-600 text-white font-bold transition glow-red" : "px-2.5 py-1 rounded text-red-400 hover:bg-red-950 transition";
+            
+            logTelemetry(`[MODE CHANGE] Flight Mode set to: ${mode}`);
+        }
+
+        function selectWaypoint(index) {
+            activeWpIndex = index;
+            for (let i = 0; i < 3; i++) {
+                const btn = document.getElementById(`wp${i}`);
+                btn.className = (i === index) ? "py-1.5 border rounded border-cyan-500 bg-cyan-950 text-cyan-300 font-bold" : "py-1.5 border rounded border-slate-800 bg-slate-900 text-slate-400";
+            }
+            logTelemetry(`[NAV COMPUTER] Target Waypoint set to ${waypoints[index].name}`);
+        }
+
+        // --- Process Keyboard Inputs Every Tick ---
+        function handleKeyboardLoop() {
+            if (flightMode !== 'ManualWithShadow') return;
+
+            const pitchStep = 0.8;
+            const rollStep = 1.5;
+
+            // Pitch Down: S / ArrowDown (Elevator Push / Nose Down)
+            if (keysPressed.ArrowDown || keysPressed.s) {
+                pilotPitch = Math.max(-30.0, pilotPitch - pitchStep);
+            }
+            // Pitch Up: W / ArrowUp (Elevator Pull / Nose Up)
+            if (keysPressed.ArrowUp || keysPressed.w) {
+                pilotPitch = Math.min(30.0, pilotPitch + pitchStep);
+            }
+            // Roll Left: A / ArrowLeft
+            if (keysPressed.ArrowLeft || keysPressed.a) {
+                pilotRoll = Math.max(-60.0, pilotRoll - rollStep);
+            }
+            // Roll Right: D / ArrowRight
+            if (keysPressed.ArrowRight || keysPressed.d) {
+                pilotRoll = Math.min(60.0, pilotRoll + rollStep);
+            }
+            // Reset / Trim: Space
+            if (keysPressed.Space) {
+                pilotPitch *= 0.8;
+                pilotRoll *= 0.8;
+                if (Math.abs(pilotPitch) < 0.1) pilotPitch = 0;
+                if (Math.abs(pilotRoll) < 0.1) pilotRoll = 0;
+            }
+
+            // Throttle Control
+            if (keysPressed.Shift) airspeed = Math.min(450, airspeed + 2);
+            if (keysPressed.Control) airspeed = Math.max(150, airspeed - 2);
+
+            // Sync Sliders
+            pitchSlider.value = pilotPitch;
+            rollSlider.value = pilotRoll;
+            throttleSlider.value = airspeed;
+        }
+
+        function updateKeyUiWidget() {
+            const activeStyle = "px-1.5 py-1 rounded border border-cyan-400 bg-cyan-950 text-cyan-300 font-bold glow-cyan";
+            const inactiveStyle = "px-1.5 py-1 rounded border border-slate-700 bg-slate-950 text-slate-500";
+            const activeThrotStyle = "px-2 py-0.5 rounded border border-cyan-400 bg-cyan-950 text-cyan-300 font-bold glow-cyan";
+            const inactiveThrotStyle = "px-2 py-0.5 rounded border border-slate-700 bg-slate-950 text-slate-500";
+
+            keyUpEl.className = (keysPressed.ArrowUp || keysPressed.w) ? activeStyle : inactiveStyle;
+            keyDownEl.className = (keysPressed.ArrowDown || keysPressed.s) ? activeStyle : inactiveStyle;
+            keyLeftEl.className = (keysPressed.ArrowLeft || keysPressed.a) ? activeStyle : inactiveStyle;
+            keyRightEl.className = (keysPressed.ArrowRight || keysPressed.d) ? activeStyle : inactiveStyle;
+            keySpaceEl.className = keysPressed.Space ? activeStyle : inactiveStyle;
+            keyShiftEl.className = keysPressed.Shift ? activeThrotStyle : inactiveThrotStyle;
+            keyCtrlEl.className = keysPressed.Control ? activeThrotStyle : inactiveThrotStyle;
+        }
+
+        // --- Great-circle Haversine Distance & Bearing ---
+        function calculateHaversine(lat1, lon1, lat2, lon2) {
+            const R = 6371.0;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(phi2);
+            const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLon);
+            return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+        }
+
+        // --- Core Simulation Tick (Executed ~20 times per sec) ---
+        let tickCounter = 0;
+        function updateSimulationCore() {
+            tickCounter++;
+            handleKeyboardLoop();
+
+            const targetWp = waypoints[activeWpIndex];
+            const distToWp = calculateHaversine(currentPos.lat, currentPos.lon, targetWp.lat, targetWp.lon);
+            const targetBearing = calculateBearing(currentPos.lat, currentPos.lon, targetWp.lat, targetWp.lon);
+
+            // Auto-Sequence Check (5.0 km threshold)
+            if (distToWp <= 5.0 && activeWpIndex < waypoints.length - 1) {
+                activeWpIndex++;
+                logTelemetry(`[WAYPOINT CAPTURED] Target reached! Auto-sequenced to [${waypoints[activeWpIndex].name}]`);
+                selectWaypoint(activeWpIndex);
+            }
+
+            // AI-Ada Shadow Logic & Emergency Override Evaluation
+            let unsafeState = false;
+
+            if (flightMode === 'ManualWithShadow') {
+                if (pilotPitch < -10.0 || pilotPitch > 15.0 || Math.abs(pilotRoll) > 45.0) {
+                    unsafeState = true;
+                }
+            } else if (flightMode === 'EmergencyOverride') {
+                unsafeState = true;
+            }
+
+            if (unsafeState) {
+                isEmergency = true;
+                masterCaution.classList.remove('hidden');
+                document.getElementById('controlLockBadge').innerText = "HYDRAULIC LOCK";
+                document.getElementById('controlLockBadge').className = "text-xs px-2 py-0.5 rounded bg-red-950 text-red-300 border border-red-800 animate-pulse";
+                pitchSlider.classList.add('emergency-thumb');
+
+                // Smoothly correct pitch towards safe limit (-2.0°) using DEA scaling factor
+                correctedPitch = correctedPitch + (-2.0 - correctedPitch) * 0.15 * (deaSensitivity / 1.25);
+                correctedRoll = correctedRoll * 0.85;
+
+                // Dynamic altitude change
+                altitude = Math.max(1000, altitude - 35.0);
+
+                // Update DEA sensitivity
+                deaSensitivity += 0.0003;
+                deaSamples += 1;
+
+                document.getElementById('aiInterventionStatus').innerText = "OVERRIDE ACTIVE (LOCK)";
+                document.getElementById('aiInterventionStatus').className = "font-bold text-red-400 animate-pulse";
+
+                if (tickCounter % 15 === 0) {
+                    const pSign = pilotPitch >= 0 ? '+' : '';
+                    const cSign = correctedPitch >= 0 ? '+' : '';
+                    logTelemetry(`[⚠️ OVERRIDE] Lock Engaged | Pilot P:${pSign}${pilotPitch.toFixed(1)}° -> AI Corrected:${cSign}${correctedPitch.toFixed(1)}° | Sens:${deaSensitivity.toFixed(4)}`);
+                }
+            } else if (flightMode === 'AutoFlightEngaged') {
+                isEmergency = false;
+                masterCaution.classList.add('hidden');
+                document.getElementById('controlLockBadge').innerText = "AUTO-NAV";
+                document.getElementById('controlLockBadge').className = "text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800";
+                pitchSlider.classList.remove('emergency-thumb');
+
+                // Auto-Flight target holding
+                pilotPitch = 2.0;
+                pilotRoll = 0.0;
+                pitchSlider.value = 2.0;
+                rollSlider.value = 0.0;
+
+                correctedPitch = 2.0;
+                correctedRoll = 0.0;
+
+                document.getElementById('aiInterventionStatus').innerText = "AUTO-FLIGHT ENGAGED";
+                document.getElementById('aiInterventionStatus').className = "font-bold text-cyan-300";
+            } else {
+                // Nominal Shadow Mode
+                isEmergency = false;
+                masterCaution.classList.add('hidden');
+                document.getElementById('controlLockBadge').innerText = "UNLOCKED";
+                document.getElementById('controlLockBadge').className = "text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800";
+                pitchSlider.classList.remove('emergency-thumb');
+
+                correctedPitch = pilotPitch;
+                correctedRoll = pilotRoll;
+
+                document.getElementById('aiInterventionStatus').innerText = "NOMINAL (SHADOW)";
+                document.getElementById('aiInterventionStatus').className = "font-bold text-cyan-400";
+            }
+
+            // Update UI Displays
+            const pSign = pilotPitch >= 0 ? '+' : '';
+            const rSign = pilotRoll >= 0 ? '+' : '';
+            const cSign = correctedPitch >= 0 ? '+' : '';
+            pitchDisplay.innerText = `${pSign}${pilotPitch.toFixed(1)}°`;
+            rollDisplay.innerText = `${rSign}${pilotRoll.toFixed(1)}°`;
+            throttleDisplay.innerText = `${Math.round(airspeed)} KTS`;
+            correctedPitchDisplay.innerText = `${cSign}${correctedPitch.toFixed(1)}°`;
+            document.getElementById('airspeedDisplay').innerText = `${Math.round(airspeed)} KTS`;
+            document.getElementById('altitudeDisplay').innerText = `${Math.round(altitude).toLocaleString()} FT`;
+            document.getElementById('navDistDisplay').innerText = `DIST: ${distToWp.toFixed(2)} km`;
+            document.getElementById('targetWpDisplay').innerText = `${targetWp.name} (${targetWp.alt}ft)`;
+            document.getElementById('targetBearingDisplay').innerText = `${targetBearing.toFixed(1)}°`;
+            document.getElementById('currentPosDisplay').innerText = `${currentPos.lat.toFixed(3)}°N ${currentPos.lon.toFixed(3)}°E`;
+            document.getElementById('deaSensitivityDisplay').innerText = deaSensitivity.toFixed(4);
+            document.getElementById('deaSamplesDisplay').innerText = deaSamples.toLocaleString();
+
+            // Render Horizon Canvas
+            renderArtificialHorizon(correctedPitch, correctedRoll, isEmergency);
+        }
+
+        // --- Canvas Horizon Renderer ---
+        function renderArtificialHorizon(pitch, roll, emergency) {
+            const width = horizonCanvas.width;
+            const height = horizonCanvas.height;
+            const cx = width / 2;
+            const cy = height / 2;
+
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate((-roll * Math.PI) / 180);
+
+            const pitchOffset = pitch * 4.5;
+
+            // Draw Sky Gradient
+            const skyGrad = ctx.createLinearGradient(0, -300 + pitchOffset, 0, pitchOffset);
+            skyGrad.addColorStop(0, '#102a43');
+            skyGrad.addColorStop(1, '#243b53');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(-300, -350 + pitchOffset, 600, 350);
+
+            // Draw Ground Gradient
+            const groundGrad = ctx.createLinearGradient(0, pitchOffset, 0, 300 + pitchOffset);
+            groundGrad.addColorStop(0, '#332211');
+            groundGrad.addColorStop(1, '#110a05');
+            ctx.fillStyle = groundGrad;
+            ctx.fillRect(-300, pitchOffset, 600, 350);
+
+            // Horizon Line
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-300, pitchOffset);
+            ctx.lineTo(300, pitchOffset);
+            ctx.stroke();
+
+            // Pitch Ladder Lines
+            ctx.strokeStyle = '#00ffcc88';
+            ctx.fillStyle = '#00ffcc';
+            ctx.font = '10px Fira Code';
+            ctx.lineWidth = 1;
+
+            for (let p = -30; p <= 30; p += 10) {
+                if (p === 0) continue;
+                const y = pitchOffset - (p * 4.5);
+                const lineWidth = Math.abs(p) % 20 === 0 ? 60 : 35;
+
+                ctx.beginPath();
+                ctx.moveTo(-lineWidth, y);
+                ctx.lineTo(lineWidth, y);
+                ctx.stroke();
+
+                ctx.fillText(`${p}°`, lineWidth + 8, y + 3);
+                ctx.fillText(`${p}°`, -lineWidth - 25, y + 3);
+            }
+
+            ctx.restore();
+
+            // Fixed Center Aircraft Indicator (B737 Reticle)
+            ctx.strokeStyle = emergency ? '#ff3355' : '#00ffcc';
+            ctx.lineWidth = 3;
+            if (emergency) {
+                ctx.shadowColor = '#ff3355';
+                ctx.shadowBlur = 10;
+            } else {
+                ctx.shadowBlur = 0;
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(cx - 70, cy); ctx.lineTo(cx - 25, cy); ctx.lineTo(cx - 25, cy + 12);
+            ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+            ctx.moveTo(cx + 25, cy); ctx.lineTo(cx + 70, cy); ctx.lineTo(cx + 25, cy + 12);
+            ctx.stroke();
+
+            // Bank Roll Angle Arch
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#00ffcc66';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 120, Math.PI * 1.2, Math.PI * 1.8);
+            ctx.stroke();
+
+            // Roll Pointer Marker
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate((-roll * Math.PI) / 180);
+            ctx.fillStyle = emergency ? '#ff3355' : '#00ffcc';
+            ctx.beginPath();
+            ctx.moveTo(0, -118);
+            ctx.lineTo(-6, -108);
+            ctx.lineTo(6, -108);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // --- Black Box Telemetry Logger ---
+        function logTelemetry(msg) {
+            const timeStr = new Date().toISOString().substring(11, 19);
+            const entry = document.createElement('div');
+            
+            if (msg.includes('⚠️ OVERRIDE') || msg.includes('HYDRAULIC LOCK')) {
+                entry.className = 'text-[#ff3355] font-semibold';
+            } else if (msg.includes('MODE CHANGE')) {
+                entry.className = 'text-cyan-300 font-semibold';
+            } else {
+                entry.className = 'text-slate-300';
+            }
+            
+            entry.innerText = `[${timeStr}] ${msg}`;
+            telemetryLog.appendChild(entry);
+            telemetryLog.scrollTop = telemetryLog.scrollHeight;
+        }
+
+        function clearTelemetryLog() {
+            telemetryLog.innerHTML = '<div class="text-cyan-400">[LOG RESET] Black Box Cleared.</div>';
+        }
+
+        // --- Start Main Loop ---
+        setInterval(updateSimulationCore, 50);
+    </script>
+</body>
+</html>
