@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>B737-800 Baggage Express - AI-Ada Cockpit Simulator</title>
+    <title>B737-800 Baggage Express - AI-Ada Cockpit Simulation</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -73,7 +73,7 @@
                     B737-800 <span class="text-amber-400">"BAGGAGE EXPRESS"</span>
                 </h1>
             </div>
-            <p class="text-xs text-cyan-600 mt-0.5">AI-Ada Symbiotic Flight Deck | Neural Shadow Core v2.4 (tract ONNX)</p>
+            <p class="text-xs text-cyan-600 mt-0.5">AI-Ada Flight Deck | Standalone Browser Simulation</p>
         </div>
 
         <!-- Mode Selectors & Master Caution -->
@@ -240,7 +240,7 @@
             <div id="aiStatusBox" class="bg-slate-950 border border-cyan-900/80 rounded-lg p-4 box-glow-cyan transition-all duration-300">
                 <div class="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
                     <span class="text-xs font-bold text-cyan-400">🤖 AI-ADA DEA LEARNING ENGINE & MATRIX SCALER</span>
-                    <span class="text-[10px] px-2 py-0.5 rounded bg-slate-900 text-cyan-400 border border-cyan-900">TRACT ONNX BACKEND</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-slate-900 text-cyan-400 border border-cyan-900">BROWSER SIMULATION</span>
                 </div>
 
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
@@ -274,8 +274,8 @@
 
                 <!-- Telemetry Log Terminal Box with screenshot-matched styling -->
                 <div id="telemetryLog" class="flex-grow bg-[#06090e] border border-slate-800/90 rounded-md p-3 text-[11px] font-mono overflow-y-auto max-h-[480px] space-y-1.5 leading-relaxed">
-                    <div class="text-cyan-400">[11:38:00] [SYSTEM INIT] AI-Ada Flight Core Online.</div>
-                    <div class="text-cyan-400">[11:38:00] [SYSTEM INIT] Loaded ai_ada_model.onnx via tract.</div>
+                    <div class="text-cyan-400">[SYSTEM INIT] Browser flight simulation online.</div>
+                    <div class="text-cyan-400">[SYSTEM INIT] This standalone UI does not load the Rust ONNX model.</div>
                 </div>
             </div>
         </section>
@@ -286,8 +286,8 @@
     <footer class="mt-4 pt-2 border-t border-slate-800 text-[11px] text-slate-500 flex flex-wrap justify-between items-center">
         <div>RETROFITTED BOEING 737-800 LOGISTICS FLEET | BAGGAGE EXPRESS AIRWAY</div>
         <div class="flex space-x-4">
-            <span>STABILITY: <span class="text-cyan-400">VERIFIED</span></span>
-            <span>HYDRAULICS: <span class="text-cyan-400">100% OPERATIONAL</span></span>
+            <span>STABILITY: <span class="text-cyan-400">SIMULATED</span></span>
+            <span>HYDRAULICS: <span class="text-cyan-400">SIMULATED</span></span>
         </div>
     </footer>
 
@@ -305,8 +305,17 @@
         // --- Keyboard State Tracking ---
         const keysPressed = {
             ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
-            w: false, s: false, a: false, d: false,
             Shift: false, Control: false, Space: false
+        };
+        const pressedKeyCodes = new Set();
+        const keyBindings = {
+            ArrowUp: ['ArrowUp', 'KeyW'],
+            ArrowDown: ['ArrowDown', 'KeyS'],
+            ArrowLeft: ['ArrowLeft', 'KeyA'],
+            ArrowRight: ['ArrowRight', 'KeyD'],
+            Shift: ['ShiftLeft', 'ShiftRight'],
+            Control: ['ControlLeft', 'ControlRight'],
+            Space: ['Space']
         };
 
         // --- DEA Learning Engine State ---
@@ -346,36 +355,28 @@
         const keyCtrlEl = document.getElementById('keyCtrl');
 
         // --- Keyboard Event Handlers ---
-        window.addEventListener('keydown', (e) => {
-            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", " "].includes(e.key)) {
-                e.preventDefault();
+        function setKeyState(event, pressed) {
+            const binding = Object.entries(keyBindings).find(([, codes]) => codes.includes(event.code));
+            if (!binding) return;
+            if (event.code.startsWith('Arrow') || event.code === 'Space') {
+                event.preventDefault();
             }
-            const k = e.key === ' ' ? 'Space' : e.key;
-            
-            if (k === 'Shift') keysPressed.Shift = true;
-            if (k === 'Control') keysPressed.Control = true;
-            if (k === 'Space') keysPressed.Space = true;
-
-            if (k.toLowerCase() === 'w' || k === 'ArrowUp') keysPressed.ArrowUp = true;
-            if (k.toLowerCase() === 's' || k === 'ArrowDown') keysPressed.ArrowDown = true;
-            if (k.toLowerCase() === 'a' || k === 'ArrowLeft') keysPressed.ArrowLeft = true;
-            if (k.toLowerCase() === 'd' || k === 'ArrowRight') keysPressed.ArrowRight = true;
-
+            if (pressed) {
+                pressedKeyCodes.add(event.code);
+            } else {
+                pressedKeyCodes.delete(event.code);
+            }
+            Object.entries(keyBindings).forEach(([key, codes]) => {
+                keysPressed[key] = codes.some((code) => pressedKeyCodes.has(code));
+            });
             updateKeyUiWidget();
-        });
+        }
 
-        window.addEventListener('keyup', (e) => {
-            const k = e.key === ' ' ? 'Space' : e.key;
-            
-            if (k === 'Shift') keysPressed.Shift = false;
-            if (k === 'Control') keysPressed.Control = false;
-            if (k === 'Space') keysPressed.Space = false;
-
-            if (k.toLowerCase() === 'w' || k === 'ArrowUp') keysPressed.ArrowUp = false;
-            if (k.toLowerCase() === 's' || k === 'ArrowDown') keysPressed.ArrowDown = false;
-            if (k.toLowerCase() === 'a' || k === 'ArrowLeft') keysPressed.ArrowLeft = false;
-            if (k.toLowerCase() === 'd' || k === 'ArrowRight') keysPressed.ArrowRight = false;
-
+        window.addEventListener('keydown', (event) => setKeyState(event, true));
+        window.addEventListener('keyup', (event) => setKeyState(event, false));
+        window.addEventListener('blur', () => {
+            pressedKeyCodes.clear();
+            Object.keys(keysPressed).forEach((key) => { keysPressed[key] = false; });
             updateKeyUiWidget();
         });
 
@@ -410,6 +411,7 @@
         }
 
         function selectWaypoint(index) {
+            if (!Number.isInteger(index) || index < 0 || index >= waypoints.length) return;
             activeWpIndex = index;
             for (let i = 0; i < 3; i++) {
                 const btn = document.getElementById(`wp${i}`);
@@ -426,19 +428,19 @@
             const rollStep = 1.5;
 
             // Pitch Down: S / ArrowDown (Elevator Push / Nose Down)
-            if (keysPressed.ArrowDown || keysPressed.s) {
+            if (keysPressed.ArrowDown) {
                 pilotPitch = Math.max(-30.0, pilotPitch - pitchStep);
             }
             // Pitch Up: W / ArrowUp (Elevator Pull / Nose Up)
-            if (keysPressed.ArrowUp || keysPressed.w) {
+            if (keysPressed.ArrowUp) {
                 pilotPitch = Math.min(30.0, pilotPitch + pitchStep);
             }
             // Roll Left: A / ArrowLeft
-            if (keysPressed.ArrowLeft || keysPressed.a) {
+            if (keysPressed.ArrowLeft) {
                 pilotRoll = Math.max(-60.0, pilotRoll - rollStep);
             }
             // Roll Right: D / ArrowRight
-            if (keysPressed.ArrowRight || keysPressed.d) {
+            if (keysPressed.ArrowRight) {
                 pilotRoll = Math.min(60.0, pilotRoll + rollStep);
             }
             // Reset / Trim: Space
@@ -465,10 +467,10 @@
             const activeThrotStyle = "px-2 py-0.5 rounded border border-cyan-400 bg-cyan-950 text-cyan-300 font-bold glow-cyan";
             const inactiveThrotStyle = "px-2 py-0.5 rounded border border-slate-700 bg-slate-950 text-slate-500";
 
-            keyUpEl.className = (keysPressed.ArrowUp || keysPressed.w) ? activeStyle : inactiveStyle;
-            keyDownEl.className = (keysPressed.ArrowDown || keysPressed.s) ? activeStyle : inactiveStyle;
-            keyLeftEl.className = (keysPressed.ArrowLeft || keysPressed.a) ? activeStyle : inactiveStyle;
-            keyRightEl.className = (keysPressed.ArrowRight || keysPressed.d) ? activeStyle : inactiveStyle;
+            keyUpEl.className = keysPressed.ArrowUp ? activeStyle : inactiveStyle;
+            keyDownEl.className = keysPressed.ArrowDown ? activeStyle : inactiveStyle;
+            keyLeftEl.className = keysPressed.ArrowLeft ? activeStyle : inactiveStyle;
+            keyRightEl.className = keysPressed.ArrowRight ? activeStyle : inactiveStyle;
             keySpaceEl.className = keysPressed.Space ? activeStyle : inactiveStyle;
             keyShiftEl.className = keysPressed.Shift ? activeThrotStyle : inactiveThrotStyle;
             keyCtrlEl.className = keysPressed.Control ? activeThrotStyle : inactiveThrotStyle;
@@ -501,8 +503,7 @@
             handleKeyboardLoop();
 
             const targetWp = waypoints[activeWpIndex];
-            const distToWp = calculateHaversine(currentPos.lat, currentPos.lon, targetWp.lat, targetWp.lon);
-            const targetBearing = calculateBearing(currentPos.lat, currentPos.lon, targetWp.lat, targetWp.lon);
+            let distToWp = calculateHaversine(currentPos.lat, currentPos.lon, targetWp.lat, targetWp.lon);
 
             // Auto-Sequence Check (5.0 km threshold)
             if (distToWp <= 5.0 && activeWpIndex < waypoints.length - 1) {
@@ -510,6 +511,9 @@
                 logTelemetry(`[WAYPOINT CAPTURED] Target reached! Auto-sequenced to [${waypoints[activeWpIndex].name}]`);
                 selectWaypoint(activeWpIndex);
             }
+            const activeWaypoint = waypoints[activeWpIndex];
+            distToWp = calculateHaversine(currentPos.lat, currentPos.lon, activeWaypoint.lat, activeWaypoint.lon);
+            const targetBearing = calculateBearing(currentPos.lat, currentPos.lon, activeWaypoint.lat, activeWaypoint.lon);
 
             // AI-Ada Shadow Logic & Emergency Override Evaluation
             let unsafeState = false;
@@ -592,7 +596,7 @@
             document.getElementById('airspeedDisplay').innerText = `${Math.round(airspeed)} KTS`;
             document.getElementById('altitudeDisplay').innerText = `${Math.round(altitude).toLocaleString()} FT`;
             document.getElementById('navDistDisplay').innerText = `DIST: ${distToWp.toFixed(2)} km`;
-            document.getElementById('targetWpDisplay').innerText = `${targetWp.name} (${targetWp.alt}ft)`;
+            document.getElementById('targetWpDisplay').innerText = `${activeWaypoint.name} (${activeWaypoint.alt}ft)`;
             document.getElementById('targetBearingDisplay').innerText = `${targetBearing.toFixed(1)}°`;
             document.getElementById('currentPosDisplay').innerText = `${currentPos.lat.toFixed(3)}°N ${currentPos.lon.toFixed(3)}°E`;
             document.getElementById('deaSensitivityDisplay').innerText = deaSensitivity.toFixed(4);
@@ -714,11 +718,18 @@
             
             entry.innerText = `[${timeStr}] ${msg}`;
             telemetryLog.appendChild(entry);
+            while (telemetryLog.children.length > 500) {
+                telemetryLog.firstElementChild.remove();
+            }
             telemetryLog.scrollTop = telemetryLog.scrollHeight;
         }
 
         function clearTelemetryLog() {
-            telemetryLog.innerHTML = '<div class="text-cyan-400">[LOG RESET] Black Box Cleared.</div>';
+            telemetryLog.replaceChildren();
+            const entry = document.createElement('div');
+            entry.className = 'text-cyan-400';
+            entry.textContent = '[LOG RESET] Black Box Cleared.';
+            telemetryLog.appendChild(entry);
         }
 
         // --- Start Main Loop ---
